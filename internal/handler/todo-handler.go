@@ -20,7 +20,7 @@ func NewTodoHandler(store store.TodoStore) *TodoHandler {
 }
 
 func (h *TodoHandler) GetTodos(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(middleware.UserIDKey).(uint64)
+	userID, ok := r.Context().Value(middleware.UserIDKey).(int64)
 	if !ok {
 		http.Error(w, "user not found", http.StatusInternalServerError)
 		return
