@@ -26,7 +26,9 @@ func main() {
 	http.HandleFunc("/register", userHandler.Register)
 	http.HandleFunc("/login", userHandler.Login)
 
-	log.Println("Server running on port :", cfg.APIPort)
-	http.ListenAndServe(":"+cfg.APIPort, nil)
+	log.Printf("Server running on port : %s", cfg.APIPort)
+	if err := http.ListenAndServe(":"+cfg.APIPort, nil); err != nil {
+		log.Fatal("Server failed to start:", err)
+	}
 }
 
