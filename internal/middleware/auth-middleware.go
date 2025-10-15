@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	
+
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -23,7 +23,7 @@ func AuthMiddleware(secretKey string) func(http.Handler) http.Handler {
 
 			tokenString := ""
 			if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-				tokenString = authHeader[:7]
+				tokenString = authHeader[7:]
 			} else {
 				http.Error(w, "invalid authorization format", http.StatusUnauthorized)
 				return 
@@ -43,7 +43,7 @@ func AuthMiddleware(secretKey string) func(http.Handler) http.Handler {
 
 			if claims, ok := token.Claims.(jwt.MapClaims); ok {
 				if userID, ok := claims["user_id"].(float64); ok {
-					ctx := context.WithValue(r.Context(), "user_id", int64(userID))
+					ctx := context.WithValue(r.Context(), UserIDKey, int64(userID))
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return 
 				}

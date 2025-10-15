@@ -4,14 +4,77 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"todo-app-backend/internal/middleware"
-	"todo-app-backend/internal/model"
 
 	"github.com/gorilla/mux"
+	"todo-app-backend/internal/middleware"
+	"todo-app-backend/internal/model"
+	"todo-app-backend/internal/store"
 )
 
 type TodoHandler struct {
-	Store	*store.TodoStore
+	Store store.TodoStore
+}
+
+func NewTodoHandler(store store.TodoStore) *TodoHandler {
+	return &TodoHandler{Store: store}
+}
+
+func (h *TodoHandler) GetTodos(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(uint64)
+	if !ok {
+		http.Error(w, "user not found", http.StatusInternalServerError)
+		return
+	}
+
+	todos, err := h.Store.GetTodosByUserID(userID)
+	if err != nil {
+		http.Error(w, "failed to fetch todos", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Context-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"todos": todos,
+	})
+}
+
+func (h *TodoHandler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(int64)
+	if !ok {
+		http.Error(w, "user not found", http.StatusInternalServerError)
+		return
+	}
+
+	vars := mux.Vars(r)
+	idStr, ok := vars["id"]
+	if !ok {
+		http.Error(w, "missing todo id", http.StatusBadRequest)
+		return
+	}
+
+	todoID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid todo id", http.StatusBadRequest)
+		return
+	}
+
+	var data struct {
+		Completed bool `json:"completed"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		http.Error(w, "failed to process json input", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.Store.UpdateTodoStatus(userID, todoID, data.Completed); err != nil {
+		http.Error(w, "failed to update todo", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "todo updated successfully",
+	})
 }
 
 func (h *TodoHandler) CreateTodo(w http.ResponseWriter, r *http.Request) {
@@ -21,9 +84,8 @@ func (h *TodoHandler) CreateTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	var data struct {
-		Task	string `json:"task"`
+		Task string `json:"task"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
 		http.Error(w, "failed to process json input", http.StatusBadRequest)
@@ -35,13 +97,13 @@ func (h *TodoHandler) CreateTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	todo :=  model.Todo {
+	todo := model.Todo{
 		UserID: userID,
-		Task: data.Task,
+		Task:   data.Task,
 	}
 
 	if err := h.Store.CreateTodo(&todo); err != nil {
-		http.Error(w, "failed to create to do", http.StatusInternalServerError)
+		http.Error(w, "failed to create todo", http.StatusInternalServerError)
 		return
 	}
 
@@ -51,7 +113,7 @@ func (h *TodoHandler) CreateTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TodoHandler) DeleteTodo(w http.ResponseWriter, r *http.Request) {
-	userID, ok :=  r.Context().Value(middleware.UserIDKey).(int64)
+	userID, ok := r.Context().Value(middleware.UserIDKey).(int64)
 	if !ok {
 		http.Error(w, "user not found", http.StatusInternalServerError)
 		return
